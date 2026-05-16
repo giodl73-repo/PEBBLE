@@ -5,6 +5,8 @@
 //! schema for views and corpus slices.
 
 use serde::{Deserialize, Serialize};
+#[cfg(feature = "slice")]
+use serde_json::{json, Value};
 use std::collections::BTreeMap;
 
 pub const SCHEMA: &str = "pebble.v1";
@@ -72,6 +74,46 @@ impl PebbleDocument {
     pub fn from_json(json: &str) -> serde_json::Result<Self> {
         serde_json::from_str(json)
     }
+
+    #[cfg(feature = "slice")]
+    pub fn select_documents<'a>(
+        documents: &'a [PebbleDocument],
+        expr: &str,
+    ) -> Result<Vec<&'a PebbleDocument>, slice_core::SliceError> {
+        let catalog = document_catalog(documents);
+        let selector = slice_core::compile(expr, &catalog)?;
+        Ok(documents
+            .iter()
+            .filter(|document| selector.matches(&document_row(document)))
+            .collect())
+    }
+
+    #[cfg(feature = "slice")]
+    pub fn select_sections<'a>(
+        documents: &'a [PebbleDocument],
+        expr: &str,
+    ) -> Result<Vec<SelectedPebbleSection<'a>>, slice_core::SliceError> {
+        let catalog = section_catalog(documents);
+        let selector = slice_core::compile(expr, &catalog)?;
+        Ok(documents
+            .iter()
+            .flat_map(|document| {
+                document
+                    .sections
+                    .iter()
+                    .filter(|section| selector.matches(&section_row(document, section)))
+                    .map(|section| SelectedPebbleSection { document, section })
+                    .collect::<Vec<_>>()
+            })
+            .collect())
+    }
+}
+
+#[cfg(feature = "slice")]
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub struct SelectedPebbleSection<'a> {
+    pub document: &'a PebbleDocument,
+    pub section: &'a PebbleSection,
 }
 
 pub fn document_title(markdown: &str, fallback: &str) -> String {
@@ -90,6 +132,86 @@ pub fn document_title(markdown: &str, fallback: &str) -> String {
 
 pub fn markdown_sections(markdown: &str) -> Vec<PebbleSection> {
     markdown_sections_with_metadata(markdown, &BTreeMap::new(), 1)
+}
+
+#[cfg(feature = "slice")]
+fn document_catalog(documents: &[PebbleDocument]) -> slice_core::FieldCatalog {
+    let mut catalog = slice_core::FieldCatalog::new();
+    catalog
+        .insert("schema", slice_core::ValueType::String)
+        .insert("kind", slice_core::ValueType::String)
+        .insert("title", slice_core::ValueType::String)
+        .insert("source", slice_core::ValueType::String)
+        .insert("format", slice_core::ValueType::String)
+        .insert("refs", slice_core::ValueType::Array);
+    for document in documents {
+        for key in document.metadata.keys() {
+            catalog.insert(format!("metadata.{key}"), slice_core::ValueType::String);
+        }
+    }
+    catalog
+}
+
+#[cfg(feature = "slice")]
+fn section_catalog(documents: &[PebbleDocument]) -> slice_core::FieldCatalog {
+    let mut catalog = slice_core::FieldCatalog::new();
+    catalog
+        .insert("document.schema", slice_core::ValueType::String)
+        .insert("document.kind", slice_core::ValueType::String)
+        .insert("document.title", slice_core::ValueType::String)
+        .insert("document.source", slice_core::ValueType::String)
+        .insert("document.format", slice_core::ValueType::String)
+        .insert("document.refs", slice_core::ValueType::Array)
+        .insert("section.id", slice_core::ValueType::String)
+        .insert("section.path", slice_core::ValueType::Array)
+        .insert("section.level", slice_core::ValueType::Number)
+        .insert("section.line", slice_core::ValueType::Number)
+        .insert("section.text", slice_core::ValueType::String);
+    for document in documents {
+        for key in document.metadata.keys() {
+            catalog.insert(
+                format!("document.metadata.{key}"),
+                slice_core::ValueType::String,
+            );
+        }
+        for section in &document.sections {
+            for key in section.metadata.keys() {
+                catalog.insert(
+                    format!("section.metadata.{key}"),
+                    slice_core::ValueType::String,
+                );
+            }
+        }
+    }
+    catalog
+}
+
+#[cfg(feature = "slice")]
+fn document_row(document: &PebbleDocument) -> Value {
+    json!({
+        "schema": document.schema,
+        "kind": document.kind,
+        "title": document.title,
+        "source": document.source,
+        "format": document.format,
+        "metadata": document.metadata,
+        "refs": document.refs,
+    })
+}
+
+#[cfg(feature = "slice")]
+fn section_row(document: &PebbleDocument, section: &PebbleSection) -> Value {
+    json!({
+        "document": document_row(document),
+        "section": {
+            "id": section.id,
+            "path": section.path,
+            "level": section.level,
+            "line": section.line,
+            "metadata": section.metadata,
+            "text": section.text,
+        },
+    })
 }
 
 fn markdown_sections_with_metadata(

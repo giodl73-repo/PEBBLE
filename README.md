@@ -70,12 +70,22 @@ let pebble = pebble::PebbleDocument::from_markdown(
 let json = pebble.to_json()?;
 ```
 
+Enable the optional `slice` feature to select Pebble documents or sections with
+SLICE without making filtering part of the `pebble.v1` schema:
+
+```rust
+let selected = pebble::PebbleDocument::select_documents(
+    &[pebble],
+    "metadata.status eq 'ready' and metadata.tags contains 'proof'",
+)?;
+```
+
 ## Research
 
 - [Performance research](docs/research/performance.md) tracks size, speed, and
   quality options before broader adoption.
-- [SLICE selector examples](docs/specs/slice-selectors.md) show dev-only
-  metadata selector patterns over Pebble-shaped rows without changing
+- [SLICE selector examples](docs/specs/slice-selectors.md) show optional
+  metadata selector helpers over Pebble-shaped rows without changing
   `pebble.v1`.
 
 ## License

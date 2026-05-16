@@ -9,6 +9,8 @@ repository = "https://github.com/giodl73-repo/PEBBLE"
 [dependencies]
 serde = { version = "1", features = ["derive"] }
 serde_json = "1"
+slice-core = { git = "https://github.com/giodl73-repo/SLICE", package = "slice-core", rev = "9e4e52eb42c0415c5a2eacb83e909c313986e868", optional = true }
 
-[dev-dependencies]
-slice-core = { git = "https://github.com/giodl73-repo/SLICE", package = "slice-core", rev = "4b51cc4371d5773fd37864206759ad2e8b323725" }
+[features]
+default = []
+slice = ["dep:slice-core"]
