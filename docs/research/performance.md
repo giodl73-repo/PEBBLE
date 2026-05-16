@@ -34,16 +34,17 @@ boundaries.
 - Source command:
   `.\examples\bench-fixtures\generate.ps1 -Size all -Force; .\examples\bench-fixtures\run.ps1 -Size all -Runs 3`
   in `C:\src\crop`.
-- Result snapshot after compact fixture generation:
+- Result snapshot after applying AI-oriented context/provenance sections in the
+  CROP benchmark fixtures:
 
 | Size | Mode | Bytes | Units | Edges | Selected tokens | Quality | Avg total |
 |---|---:|---:|---:|---:|---:|---:|---:|
-| small | md | 5,752 | 72 | 252 | 792 | 0.540741 | 11.333ms |
-| small | pebble | 9,216 | 32 | 102 | 688 | 0.700000 | 4.333ms |
-| medium | md | 45,056 | 576 | 2,132 | 1,679 | 0.526125 | 68.000ms |
-| medium | pebble | 72,960 | 256 | 872 | 1,458 | 0.676488 | 28.000ms |
-| large | md | 179,552 | 2,304 | 8,528 | 1,679 | 0.526125 | 143.667ms |
-| large | pebble | 291,072 | 1,024 | 3,488 | 1,458 | 0.676488 | 74.333ms |
+| small | md | 5,752 | 72 | 252 | 792 | 0.540741 | 12.333ms |
+| small | pebble | 7,928 | 16 | 42 | 632 | 0.933333 | 2.667ms |
+| medium | md | 45,056 | 576 | 2,132 | 1,679 | 0.526125 | 74.000ms |
+| medium | pebble | 62,656 | 128 | 368 | 1,339 | 0.913321 | 16.333ms |
+| large | md | 179,552 | 2,304 | 8,528 | 1,679 | 0.526125 | 146.000ms |
+| large | pebble | 249,952 | 512 | 1,472 | 1,339 | 0.913321 | 61.667ms |
 
 - Implication: Pebble improves runtime and benchmark quality by giving CROP fewer,
   cleaner section units, even while current JSON bytes are larger than Markdown.
@@ -132,6 +133,9 @@ cost.**
 
 1. Generate compact fixtures in CROP and record output:
    `.\examples\bench-fixtures\run.ps1 -Size all -Runs 10`.
-2. Add a real MAXIM slice fixture once the MAXIM backfill path emits Pebbles.
-3. Prototype bundle output in the Pebble crate without changing
+2. Maintain the synthetic CROP fixture quality target: Pebble should beat
+   Markdown by at least `+0.10` quality at medium and large sizes and run in no
+   more than 70% of the Markdown total time.
+3. Add a real MAXIM slice fixture once the MAXIM backfill path emits Pebbles.
+4. Prototype bundle output in the Pebble crate without changing
    `PebbleDocument::to_json()`.
