@@ -5,6 +5,7 @@
 //! schema for views and corpus slices.
 
 use serde::{Deserialize, Serialize};
+use std::collections::BTreeMap;
 
 pub const SCHEMA: &str = "pebble.v1";
 pub const DOCUMENT_KIND: &str = "document";
@@ -17,6 +18,8 @@ pub struct PebbleDocument {
     pub title: String,
     pub source: String,
     pub format: String,
+    #[serde(default)]
+    pub metadata: BTreeMap<String, String>,
     pub sections: Vec<PebbleSection>,
     #[serde(default)]
     pub refs: Vec<String>,
@@ -28,6 +31,8 @@ pub struct PebbleSection {
     pub path: Vec<String>,
     pub level: usize,
     pub line: usize,
+    #[serde(default)]
+    pub metadata: BTreeMap<String, String>,
     pub text: String,
 }
 
@@ -44,6 +49,7 @@ impl PebbleDocument {
             title: document_title(markdown, fallback_title),
             source: source.into(),
             format: MARKDOWN_FORMAT.to_string(),
+            metadata: BTreeMap::new(),
             sections: markdown_sections(markdown),
             refs: refs.into_iter().map(Into::into).collect(),
         }
@@ -123,6 +129,7 @@ pub fn markdown_sections(markdown: &str) -> Vec<PebbleSection> {
             path: Vec::new(),
             level: 0,
             line: 1,
+            metadata: BTreeMap::new(),
             text: String::new(),
         });
     }
@@ -148,6 +155,7 @@ fn push_section(
         path: path.to_vec(),
         level,
         line,
+        metadata: BTreeMap::new(),
         text,
     });
 }
@@ -214,7 +222,9 @@ mod tests {
         assert_eq!(pebble.schema, SCHEMA);
         assert_eq!(pebble.title, "Guide");
         assert_eq!(pebble.refs, vec![".proof/side-info/links.json"]);
+        assert!(pebble.metadata.is_empty());
         assert_eq!(pebble.sections[0].id, "guide");
+        assert!(pebble.sections[0].metadata.is_empty());
         assert_eq!(pebble.sections[0].path, vec!["Guide"]);
         assert_eq!(pebble.sections[1].id, "steps");
         assert_eq!(pebble.sections[1].path, vec!["Guide", "Steps"]);
@@ -242,5 +252,31 @@ mod tests {
 
         assert_eq!(sections[0].id, "item");
         assert_eq!(sections[1].id, "item-2");
+    }
+
+    #[test]
+    fn deserializes_legacy_json_without_metadata() {
+        let json = r##"{
+          "schema": "pebble.v1",
+          "kind": "document",
+          "title": "Legacy",
+          "source": "legacy.md",
+          "format": "markdown",
+          "sections": [
+            {
+              "id": "legacy",
+              "path": ["Legacy"],
+              "level": 1,
+              "line": 1,
+              "text": "# Legacy\n"
+            }
+          ],
+          "refs": []
+        }"##;
+
+        let loaded = PebbleDocument::from_json(json).unwrap();
+
+        assert!(loaded.metadata.is_empty());
+        assert!(loaded.sections[0].metadata.is_empty());
     }
 }
