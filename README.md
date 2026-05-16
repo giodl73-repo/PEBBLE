@@ -64,6 +64,11 @@ let pebble = pebble::PebbleDocument::from_markdown(
 let json = pebble.to_json()?;
 ```
 
+## Research
+
+- [Performance research](docs/research/performance.md) tracks size, speed, and
+  quality options before broader adoption.
+
 ## License
 
 [MIT](LICENSE) — © 2026 Gio Della-Libera.
