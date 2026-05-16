@@ -68,6 +68,9 @@ let json = pebble.to_json()?;
 
 - [Performance research](docs/research/performance.md) tracks size, speed, and
   quality options before broader adoption.
+- [SLICE selector examples](docs/specs/slice-selectors.md) show dev-only
+  metadata selector patterns over Pebble-shaped rows without changing
+  `pebble.v1`.
 
 ## License
 
