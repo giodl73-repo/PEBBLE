@@ -3,6 +3,12 @@
 Pebble is a compact context transfer format for documents, corpora, and AI
 agents. The current schema is `pebble.v1`.
 
+**Series:** [Standards & Protocols](https://github.com/giodl73-repo/giodl73-repo/blob/main/series/standards-protocols.md).
+
+**Review roles:** This repo uses
+[ROLES](https://github.com/giodl73-repo/ROLES), the `.roles` convention for
+repository-local review panels.
+
 Pebbles are not a human publishing target. They are small, provenance-bearing
 records that preserve source identity, section boundaries, stable IDs, line
 numbers, resolved text, and dependency references.
@@ -42,3 +48,7 @@ let pebble = pebble::PebbleDocument::from_markdown(
 );
 let json = pebble.to_json()?;
 ```
+
+## License
+
+[MIT](LICENSE) — © 2026 Gio Della-Libera.
