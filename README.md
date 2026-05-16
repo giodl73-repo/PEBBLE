@@ -27,8 +27,12 @@ inventing separate pack formats.
 - **Kinds:** `document` for one source document; tools may use other kind strings
   such as `corpus-slice` when the sections come from a selected corpus view.
 - **Format:** `markdown` means section text is Markdown content.
+- **Metadata:** optional document and section key/value metadata. Markdown
+  frontmatter is projected into document metadata and copied onto generated
+  sections so downstream selectors can filter by fields such as `tags`,
+  `status`, or `source_custody`.
 - **Sections:** ordered document/corpus chunks with stable `id`, heading `path`,
-  heading `level`, source `line`, and resolved `text`.
+  heading `level`, source `line`, optional `metadata`, and resolved `text`.
 - **Refs:** optional dependency/source references used for provenance and graph
   construction.
 
@@ -39,12 +43,14 @@ inventing separate pack formats.
   "title": "Guide",
   "source": "guide.source.md",
   "format": "markdown",
+  "metadata": {"tags": "[proof, guide]", "status": "ready"},
   "sections": [
     {
       "id": "guide",
       "path": ["Guide"],
       "level": 1,
       "line": 1,
+      "metadata": {"tags": "[proof, guide]", "status": "ready"},
       "text": "# Guide\n\nResolved Markdown text."
     }
   ],

@@ -43,14 +43,24 @@ impl PebbleDocument {
         source: impl Into<String>,
         refs: impl IntoIterator<Item = impl Into<String>>,
     ) -> Self {
+        let parsed = parse_markdown_frontmatter(markdown);
+        let title = parsed
+            .metadata
+            .get("title")
+            .cloned()
+            .unwrap_or_else(|| document_title(parsed.content, fallback_title));
         Self {
             schema: SCHEMA.to_string(),
             kind: DOCUMENT_KIND.to_string(),
-            title: document_title(markdown, fallback_title),
+            title,
             source: source.into(),
             format: MARKDOWN_FORMAT.to_string(),
-            metadata: BTreeMap::new(),
-            sections: markdown_sections(markdown),
+            metadata: parsed.metadata.clone(),
+            sections: markdown_sections_with_metadata(
+                parsed.content,
+                &parsed.metadata,
+                parsed.start_line,
+            ),
             refs: refs.into_iter().map(Into::into).collect(),
         }
     }
@@ -79,15 +89,23 @@ pub fn document_title(markdown: &str, fallback: &str) -> String {
 }
 
 pub fn markdown_sections(markdown: &str) -> Vec<PebbleSection> {
+    markdown_sections_with_metadata(markdown, &BTreeMap::new(), 1)
+}
+
+fn markdown_sections_with_metadata(
+    markdown: &str,
+    metadata: &BTreeMap<String, String>,
+    start_line: usize,
+) -> Vec<PebbleSection> {
     let mut sections = Vec::new();
-    let mut current_start = 1usize;
+    let mut current_start = start_line;
     let mut current_level = 0usize;
     let mut current_path: Vec<String> = Vec::new();
     let mut current_text = String::new();
     let mut heading_stack: Vec<(usize, String)> = Vec::new();
 
     for (index, line) in markdown.lines().enumerate() {
-        let line_number = index + 1;
+        let line_number = index + start_line;
         if let Some((level, heading)) = parse_heading(line) {
             push_section(
                 &mut sections,
@@ -95,6 +113,7 @@ pub fn markdown_sections(markdown: &str) -> Vec<PebbleSection> {
                 current_level,
                 &current_path,
                 &current_text,
+                metadata,
             );
             while heading_stack
                 .last()
@@ -121,6 +140,7 @@ pub fn markdown_sections(markdown: &str) -> Vec<PebbleSection> {
         current_level,
         &current_path,
         &current_text,
+        metadata,
     );
 
     if sections.is_empty() {
@@ -128,8 +148,8 @@ pub fn markdown_sections(markdown: &str) -> Vec<PebbleSection> {
             id: "document".to_string(),
             path: Vec::new(),
             level: 0,
-            line: 1,
-            metadata: BTreeMap::new(),
+            line: start_line,
+            metadata: metadata.clone(),
             text: String::new(),
         });
     }
@@ -143,6 +163,7 @@ fn push_section(
     level: usize,
     path: &[String],
     text: &str,
+    metadata: &BTreeMap<String, String>,
 ) {
     let text = text.trim().to_string();
     if text.is_empty() {
@@ -155,9 +176,81 @@ fn push_section(
         path: path.to_vec(),
         level,
         line,
-        metadata: BTreeMap::new(),
+        metadata: metadata.clone(),
         text,
     });
+}
+
+struct ParsedMarkdown<'a> {
+    metadata: BTreeMap<String, String>,
+    content: &'a str,
+    start_line: usize,
+}
+
+fn parse_markdown_frontmatter(markdown: &str) -> ParsedMarkdown<'_> {
+    let mut lines = markdown.split_inclusive('\n');
+    let Some(first_line) = lines.next() else {
+        return ParsedMarkdown {
+            metadata: BTreeMap::new(),
+            content: markdown,
+            start_line: 1,
+        };
+    };
+    if trim_line_end(first_line).trim() != "---" {
+        return ParsedMarkdown {
+            metadata: BTreeMap::new(),
+            content: markdown,
+            start_line: 1,
+        };
+    }
+
+    let mut metadata = BTreeMap::new();
+    let mut consumed_bytes = first_line.len();
+    let mut start_line = 2usize;
+
+    for line_with_newline in lines {
+        let line = trim_line_end(line_with_newline);
+        if line.trim() == "---" {
+            consumed_bytes = consumed_bytes.saturating_add(line_with_newline.len());
+            return ParsedMarkdown {
+                metadata,
+                content: markdown.get(consumed_bytes..).unwrap_or(""),
+                start_line: start_line + 1,
+            };
+        }
+        if let Some((key, value)) = line.split_once(':') {
+            let key = key.trim();
+            if !key.is_empty() {
+                metadata.insert(key.to_string(), clean_frontmatter_value(value));
+            }
+        }
+        consumed_bytes = consumed_bytes.saturating_add(line_with_newline.len());
+        start_line += 1;
+    }
+
+    ParsedMarkdown {
+        metadata: BTreeMap::new(),
+        content: markdown,
+        start_line: 1,
+    }
+}
+
+fn trim_line_end(line: &str) -> &str {
+    line.trim_end_matches(['\r', '\n'])
+}
+
+fn clean_frontmatter_value(value: &str) -> String {
+    let value = value.trim();
+    value
+        .strip_prefix('"')
+        .and_then(|value| value.strip_suffix('"'))
+        .or_else(|| {
+            value
+                .strip_prefix('\'')
+                .and_then(|value| value.strip_suffix('\''))
+        })
+        .unwrap_or(value)
+        .to_string()
 }
 
 fn unique_section_id(sections: &[PebbleSection], heading: &str) -> String {
@@ -252,6 +345,31 @@ mod tests {
 
         assert_eq!(sections[0].id, "item");
         assert_eq!(sections[1].id, "item-2");
+    }
+
+    #[test]
+    fn frontmatter_becomes_document_and_section_metadata() {
+        let pebble = PebbleDocument::from_markdown(
+            "---\ntitle: Frontmatter Guide\ntags: [proof, guide]\nstatus: ready\n---\n\n# Body Title\n\nContent.",
+            "Fallback",
+            "guide.source.md",
+            Vec::<String>::new(),
+        );
+
+        assert_eq!(pebble.title, "Frontmatter Guide");
+        assert_eq!(
+            pebble.metadata.get("tags").map(String::as_str),
+            Some("[proof, guide]")
+        );
+        assert_eq!(
+            pebble.sections[0]
+                .metadata
+                .get("status")
+                .map(String::as_str),
+            Some("ready")
+        );
+        assert_eq!(pebble.sections[0].line, 7);
+        assert!(!pebble.sections[0].text.contains("status: ready"));
     }
 
     #[test]
