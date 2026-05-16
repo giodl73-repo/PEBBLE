@@ -17,6 +17,21 @@ PROOF emits Pebbles from compiled `.source.md` files. CROP can emit the same
 schema for corpus views and slices, so both tools can exchange context without
 inventing separate pack formats.
 
+## Pebble v1 standards
+
+- **Schema name:** `pebble.v1`.
+- **Encoding:** UTF-8 JSON without a byte-order mark.
+- **Canonical wire form:** compact JSON. Pretty JSON is allowed for examples,
+  review, and debugging, but should not be used for cache keys, transfer-size
+  measurements, or durable generated artifacts.
+- **Kinds:** `document` for one source document; tools may use other kind strings
+  such as `corpus-slice` when the sections come from a selected corpus view.
+- **Format:** `markdown` means section text is Markdown content.
+- **Sections:** ordered document/corpus chunks with stable `id`, heading `path`,
+  heading `level`, source `line`, and resolved `text`.
+- **Refs:** optional dependency/source references used for provenance and graph
+  construction.
+
 ```json
 {
   "schema": "pebble.v1",
