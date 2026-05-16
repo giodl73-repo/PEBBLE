@@ -206,9 +206,7 @@ fn parse_markdown_frontmatter(markdown: &str) -> ParsedMarkdown<'_> {
 
     let mut metadata = BTreeMap::new();
     let mut consumed_bytes = first_line.len();
-    let mut start_line = 2usize;
-
-    for line_with_newline in lines {
+    for (start_line, line_with_newline) in (2usize..).zip(lines) {
         let line = trim_line_end(line_with_newline);
         if line.trim() == "---" {
             consumed_bytes = consumed_bytes.saturating_add(line_with_newline.len());
@@ -225,7 +223,6 @@ fn parse_markdown_frontmatter(markdown: &str) -> ParsedMarkdown<'_> {
             }
         }
         consumed_bytes = consumed_bytes.saturating_add(line_with_newline.len());
-        start_line += 1;
     }
 
     ParsedMarkdown {
